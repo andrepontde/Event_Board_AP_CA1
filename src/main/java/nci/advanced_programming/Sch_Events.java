@@ -36,4 +36,8 @@ public class Sch_Events {
     public String getTime() {
         return time;
     }
+
+    public String getEvent(){
+        return "" + date + "; " + time+ "; "+ desc+"; ";
+    }
 }

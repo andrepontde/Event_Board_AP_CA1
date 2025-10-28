@@ -14,11 +14,10 @@ public class Server {
     private static ServerSocket servSock;
     private static final int PORT = 1234;
     private static int clientConnections = 0;
-    private static List<Sch_Events> sharedEvents;
+    private static final List<Sch_Events> sharedEvents = new ArrayList<>();
 
     public Server() {
         System.out.println("Opening port...\n");
-        sharedEvents = new ArrayList<>();
 
         try {
             servSock = new ServerSocket(PORT);
@@ -112,16 +111,20 @@ public class Server {
                                 // Call methods OUTSIDE synchronized block
                                 switch (command) {
                                     case "add":
-                                        add(s_event);
-                                        out.println("Event added successfully");
+                                        try {
+                                            add(s_event);
+                                            out.println("Event added successfully");
+                                        } catch (ClientInconsistencyException e) {
+                                            out.println("Error: " + e.getMessage());
+                                            System.out.println("ClientInconsistencyException for client " + clientN + ": " + e.getMessage());
+                                        }
                                         break;
                                     case "remove":
                                         remove(s_event);
                                         out.println("Event removed successfully");
                                         break;
                                     case "list":
-                                        list(s_event);
-                                        out.println("Event list displayed on server");
+                                        out.println(list(s_event));
                                         break;
                                     case "import":
                                         e_import(s_event);
@@ -137,6 +140,7 @@ public class Server {
                         
                     } catch (Exception e) {
                         System.out.println("Error processing message from client " + clientN + ": " + e.getMessage());
+                        keepRunning = false;
                         if (out != null) {
                             out.println("Error: " + e.getMessage());
                         }
@@ -159,11 +163,32 @@ public class Server {
         }
 
 
-        private void add (Sch_Events s_event){
+        private void add (Sch_Events s_event) throws ClientInconsistencyException {
+            // Validate event data before adding
+            if (s_event.getDate() == null || s_event.getDate().trim().isEmpty()) {
+                throw new ClientInconsistencyException("Invalid event: Date cannot be empty");
+            }
+            if (s_event.getTime() == null || s_event.getTime().trim().isEmpty()) {
+                throw new ClientInconsistencyException("Invalid event: Time cannot be empty");
+            }
+            if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
+                throw new ClientInconsistencyException("Invalid event: Description cannot be empty");
+            }
+            
             // Synchronize only when modifying the shared list
             synchronized (sharedEvents) {
+                // Check for duplicate events (same date, time, and description)
+                for (Sch_Events existingEvent : sharedEvents) {
+                    if (existingEvent.getDate().trim().equals(s_event.getDate().trim()) &&
+                        existingEvent.getTime().trim().equals(s_event.getTime().trim()) &&
+                        existingEvent.getDesc().trim().equals(s_event.getDesc().trim())) {
+                        throw new ClientInconsistencyException(
+                            "Duplicate event detected: An event with the same date, time, and description already exists");
+                    }
+                }
+                
                 sharedEvents.add(s_event);
-                System.out.println("Event added: " + s_event);
+                System.out.println("Event added: " + s_event.getEvent());
             }
         }
         
@@ -174,13 +199,20 @@ public class Server {
             }
         }
         
-        private void list (Sch_Events s_event){
+        //Have to be sorted by time!!
+        private String list (Sch_Events s_event){
+            String date = s_event.date;
+            List<Sch_Events> e_matches = new ArrayList<>();
+            StringBuilder listMsg = new StringBuilder();
             synchronized (sharedEvents) {
-                System.out.println("Listing all events:");
-                for (Sch_Events event : sharedEvents) {
-                    System.out.println("  - " + event);
-                }
+            sharedEvents.stream()
+                .filter(event -> event.date.equals(date))
+                .forEach(event -> e_matches.add(event));
             }
+            e_matches.stream()
+                .forEach(event -> listMsg.append(event.getEvent()));
+
+            return listMsg.toString();
         }
         
         private void e_import (Sch_Events s_event){
