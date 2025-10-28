@@ -32,10 +32,10 @@ public class Server {
 
     private void run() {
         Socket link = null;
-
+        //Code to continue to "catch" clients and assign them to new threads (clientHandler)
         while (true) {
             try {
-                System.out.println("ready to receive new message");
+                System.out.println("ready to receive new client");
                 link = servSock.accept();
                 ++clientConnections;
                 Thread t = new Thread(new ClientHandler(clientConnections, link, sharedEvents));

@@ -4,12 +4,6 @@ package nci.advanced_programming;
  * Custom exception thrown when there is an inconsistency in client data or operations.
  * This exception is used to handle situations where client requests or data 
  * violate expected constraints or business rules in the Event Board application.
- * 
- * Examples of inconsistencies:
- * - Duplicate event entries
- * - Invalid data format
- * - Conflicting operations
- * - Data integrity violations
  */
 
  
@@ -17,18 +11,10 @@ package nci.advanced_programming;
 //Student ID: x23164034
 public class ClientInconsistencyException extends Exception {
     
-    /**
-     * Constructs a new ClientInconsistencyException with no detail message.
-     */
     public ClientInconsistencyException() {
         super();
     }
     
-    /**
-     * Constructs a new ClientInconsistencyException with the specified detail message.
-     * 
-     * @param message the detail message explaining the inconsistency
-     */
     public ClientInconsistencyException(String message) {
         super(message);
     }
