@@ -12,7 +12,6 @@ import java.net.UnknownHostException;
 
 //Author: André Pont De Anda
 //Student ID: x23164034
-
 public class Client {
 
     private static InetAddress host;
@@ -38,17 +37,18 @@ public class Client {
             link = new Socket(host, PORT);
 
             // Step 2: Set up input/output streams for communicating with the server
-            // BufferedReader 'in' - reads text data COMING FROM the server
-            BufferedReader in = new BufferedReader(new InputStreamReader(link.getInputStream()));
-            // PrintWriter 'out' - writes text data TO the server (auto-flush enabled)
-            PrintWriter out = new PrintWriter(link.getOutputStream(), true);
+            // BufferedReader 'inPostman' - reads text data COMING FROM the server
+            BufferedReader inPostman = new BufferedReader(new InputStreamReader(link.getInputStream()));
+            // PrintWriter 'outPostman' - writes text data TO the server (auto-flush enabled)
+            PrintWriter outPostman = new PrintWriter(link.getOutputStream(), true);
 
             // Set up stream for reading keyboard input from the console
             BufferedReader userEntry = new BufferedReader(new InputStreamReader(System.in));
 
             System.out.println("Connected to server! Type 'quit' or 'exit' to disconnect.");
             System.out.println("Message format: command;date;time;place");
-            System.out.println("Example: add;2025-10-28;14:30;Conference Room A\n");
+            System.out.println("Example: add;2025-10-28;14:30;Conference Room A");
+            System.out.println("Or type 'import' to transfer data from \nandrepont.dev/events.txt to the server\n");
 
             // Keep connection alive - loop until user types "quit" or "exit"
             boolean keepRunning = true;
@@ -61,60 +61,58 @@ public class Client {
                     System.out.print("Enter command: ");
                     message = userEntry.readLine();
 
-                    // Check if user input is null (EOF/Ctrl+D)
+                    // Check if user input is null (EOF/Ctrl+C)
                     if (message == null) {
                         System.out.println("\nInput stream closed. Disconnecting...");
-                        out.println("quit; null; null; null;");
+                        outPostman.println("quit; null; null; null;");
                         break;
                     }
 
                     // Check if user wants to quit
-                    if (message.trim().equalsIgnoreCase("quit") || message.trim().equalsIgnoreCase("exit")) {
+                    if (message.trim().equalsIgnoreCase("quit") || message.trim().equalsIgnoreCase("exit") || message.trim().equalsIgnoreCase("stop")) {
                         System.out.println("Disconnecting from server...");
 
                         // Send quit command to server
-                        out.println(message.trim());
+                        outPostman.println(message.trim());
 
                         // Read server's goodbye response
-                        response = in.readLine();
+                        response = inPostman.readLine();
                         if (response != null) {
                             System.out.println("SERVER> " + response);
                         }
 
-
                         break;
                     } else if (message.trim().equalsIgnoreCase("import")) {
+                        //Stream results from custom file inPostman my private server to send to local 
+                        //server memory storage
                         URL url = new URL("http://apem.andrepont.dev/events.txt");
                         URLConnection conn = url.openConnection();
                         BufferedReader inImport = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 
                         String line;
                         while ((line = inImport.readLine()) != null) {
-                            out.println("add; " +line);
+                            outPostman.println("add; " + line);
                             System.out.println("Sent to server: " + line);
-                            response = in.readLine();
+                            response = inPostman.readLine();
                             if (response != null) {
                                 System.out.println("SERVER> " + response);
                             }
                         }
                         inImport.close();
                         System.out.println("Import finished\n");
-                        
+
                         // Continue to next iteration - don't read another response
                         continue;
 
                     } else {
-                        // Step 3: SEND THE MESSAGE TO THE SERVER
-                        // This is where the actual message transmission happens!
-                        // Format: command;date;time;place (semicolon-delimited string)
-                        // out.println() writes the message to the output stream, which sends it over the network
-                        out.println(message);
+                        //SEND THE MESSAGE TO THE SERVER
+                        outPostman.println(message);
 
                     }
 
-                    // Step 3: RECEIVE THE RESPONSE FROM THE SERVER
+                    // RECEIVE THE RESPONSE FROM THE SERVER
                     // Wait for the server to send back a response and read it
-                    response = in.readLine();
+                    response = inPostman.readLine();
 
                     // Check if server closed connection
                     if (response == null) {
