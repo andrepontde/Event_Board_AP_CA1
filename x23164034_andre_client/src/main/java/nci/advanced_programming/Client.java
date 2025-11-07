@@ -90,13 +90,21 @@ public class Client {
                         BufferedReader inImport = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 
                         String line;
-                        while ((line = inImport.readLine()) != null) {
-                            outPostman.println("add; " + line);
+                        // Read first line to start the loop
+                        line = inImport.readLine();
+                        while (line != null) {
+                            String next = inImport.readLine(); // peek next line
+                            if (next == null) {
+                                outPostman.println("add; " + line);
+                            } else {
+                                outPostman.println("addnolist; " + line);
+                            }
                             System.out.println("Sent to server: " + line);
                             response = inPostman.readLine();
                             if (response != null) {
                                 System.out.println("SERVER> " + response);
                             }
+                            line = next;
                         }
                         inImport.close();
                         System.out.println("Import finished\n");

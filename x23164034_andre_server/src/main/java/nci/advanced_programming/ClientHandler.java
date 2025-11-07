@@ -55,7 +55,7 @@ public class ClientHandler implements Runnable {
                     
                     // Parse the command
                     String[] eventDesc = message.split(";");
-                    command = eventDesc[0];
+                    command = eventDesc[0].toLowerCase();
                     
                     // Check for quit command
                     if (command.equalsIgnoreCase("quit") || command.equalsIgnoreCase("exit") || command.equalsIgnoreCase("stop")) {
@@ -66,7 +66,7 @@ public class ClientHandler implements Runnable {
                     }
                     
                     // Process valid commands
-                    if (command.equals("add") || command.equals("remove") || command.equals("list") || command.equals("import")) {
+                    if (command.equals("add") || command.equals("remove") || command.equals("list") || command.equals("import") || command.equals("addnolist")) {
                         if (eventDesc.length >= 4) {
                             s_event = new Sch_Events(eventDesc[1], eventDesc[2], eventDesc[3]);
                             
@@ -75,6 +75,16 @@ public class ClientHandler implements Runnable {
                                 case "add":
                                     try {
                                         postman.println("Event added successfully " + add(s_event));
+                                    } catch (ClientInconsistencyException e) {
+                                        postman.println("Error: " + e.getMessage());
+                                        System.out.println("ClientInconsistencyException for client " + clientN + ": " + e.getMessage());
+                                    }
+                                    break;
+                                //Case addnolist created to make a cleaner add function that does not return every event after completition for the 
+                                //Import function on the client side
+                                case "addnolist":
+                                    try {
+                                        postman.println("Event added successfully " + addNoList(s_event));
                                     } catch (ClientInconsistencyException e) {
                                         postman.println("Error: " + e.getMessage());
                                         System.out.println("ClientInconsistencyException for client " + clientN + ": " + e.getMessage());
@@ -153,6 +163,38 @@ public class ClientHandler implements Runnable {
             System.out.println("Event added: " + s_event.getEvent());
             
             return getAllEvents();
+        }
+    }
+
+    private String addNoList(Sch_Events s_event) throws ClientInconsistencyException {
+        // Validate event data before adding
+        if (s_event.getDate() == null || s_event.getDate().trim().isEmpty()) {
+            throw new ClientInconsistencyException("Invalid event: Date cannot be empty");
+        }
+        if (s_event.getTime() == null || s_event.getTime().trim().isEmpty()) {
+            throw new ClientInconsistencyException("Invalid event: Time cannot be empty");
+        }
+        if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
+            throw new ClientInconsistencyException("Invalid event: Description cannot be empty");
+        }
+        
+        // Synchronize only when modifying the shared list
+        synchronized (sharedEvents) {
+            // Check for duplicate events (same date, time, and description)
+            for (Sch_Events existingEvent : sharedEvents) {
+                if (existingEvent.getDate().trim().equals(s_event.getDate().trim()) &&
+                    existingEvent.getTime().trim().equals(s_event.getTime().trim()) &&
+                    existingEvent.getDesc().trim().equals(s_event.getDesc().trim())) {
+                    throw new ClientInconsistencyException(
+                        "Duplicate event detected: An event with the same date, time, and description already exists");
+                }
+            }
+            
+            // Add the event to the shared list
+            sharedEvents.add(s_event);
+            System.out.println("Event added: " + s_event.getEvent());
+            
+            return s_event;
         }
     }
     
