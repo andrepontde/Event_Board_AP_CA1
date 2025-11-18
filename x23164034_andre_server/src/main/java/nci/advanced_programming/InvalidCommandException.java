@@ -1,7 +1,7 @@
 package nci.advanced_programming;
 
 /**
- * Custom exception thrown when there is an inconsistency in client data or operations.
+ * Custom exception thrown when there is an invalid command or inconsistency in client data or operations.
  * This exception is used to handle situations where client requests or data 
  * violate expected constraints or business rules in the Event Board application.
  */
@@ -9,32 +9,32 @@ package nci.advanced_programming;
  
 //Author: André Pont De Anda
 //Student ID: x23164034
-public class ClientInconsistencyException extends Exception {
+public class InvalidCommandException extends Exception {
     
-    public ClientInconsistencyException() {
+    public InvalidCommandException() {
         super();
     }
     
-    public ClientInconsistencyException(String message) {
+    public InvalidCommandException(String message) {
         super(message);
     }
     
     /**
-     * Constructs a new ClientInconsistencyException with the specified detail message and cause.
+     * Constructs a new InvalidCommandException with the specified detail message and cause.
      * 
      * @param message the detail message explaining the inconsistency
      * @param cause the cause of the exception
      */
-    public ClientInconsistencyException(String message, Throwable cause) {
+    public InvalidCommandException(String message, Throwable cause) {
         super(message, cause);
     }
     
     /**
-     * Constructs a new ClientInconsistencyException with the specified cause.
+     * Constructs a new InvalidCommandException with the specified cause.
      * 
      * @param cause the cause of the exception
      */
-    public ClientInconsistencyException(Throwable cause) {
+    public InvalidCommandException(Throwable cause) {
         super(cause);
     }
 }

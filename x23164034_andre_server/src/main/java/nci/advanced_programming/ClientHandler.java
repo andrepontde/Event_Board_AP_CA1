@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 //Author: André Pont De Anda
 //Student ID: x23164034
@@ -75,9 +76,9 @@ public class ClientHandler implements Runnable {
                                 case "add":
                                     try {
                                         postman.println("Event added successfully " + add(s_event));
-                                    } catch (ClientInconsistencyException e) {
+                                    } catch (InvalidCommandException e) {
                                         postman.println("Error: " + e.getMessage());
-                                        System.out.println("ClientInconsistencyException for client " + clientN + ": " + e.getMessage());
+                                        System.out.println("InvalidCommandException for client " + clientN + ": " + e.getMessage());
                                     }
                                     break;
                                 //Case addnolist created to make a cleaner add function that does not return every event after completition for the 
@@ -85,9 +86,9 @@ public class ClientHandler implements Runnable {
                                 case "addnolist":
                                     try {
                                         postman.println("Event added successfully " + addNoList(s_event));
-                                    } catch (ClientInconsistencyException e) {
+                                    } catch (InvalidCommandException e) {
                                         postman.println("Error: " + e.getMessage());
-                                        System.out.println("ClientInconsistencyException for client " + clientN + ": " + e.getMessage());
+                                        System.out.println("InvalidCommandException for client " + clientN + ": " + e.getMessage());
                                     }
                                     break;
                                 case "remove":
@@ -134,16 +135,22 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private String add(Sch_Events s_event) throws ClientInconsistencyException {
+    private String add(Sch_Events s_event) throws InvalidCommandException {
         // Validate event data before adding
         if (s_event.getDate() == null || s_event.getDate().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Date cannot be empty");
+            throw new InvalidCommandException("Invalid event: Date cannot be empty");
+        }
+        if (!isValidDateFormat(s_event.getDate().trim())) {
+            throw new InvalidCommandException("Invalid event: Date must be in format 'DD/MM/YYYY', 'DD-MM-YYYY', or 'DD month YYYY' (e.g., '25/10/2024', '26-10-2026', or '12 november 2025')");
         }
         if (s_event.getTime() == null || s_event.getTime().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Time cannot be empty");
+            throw new InvalidCommandException("Invalid event: Time cannot be empty");
+        }
+        if (!isValidTimeFormat(s_event.getTime().trim())) {
+            throw new InvalidCommandException("Invalid event: Time must be in format HH:MM or HH:MM AM/PM (e.g., '14:30' or '2:30 PM')");
         }
         if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Description cannot be empty");
+            throw new InvalidCommandException("Invalid event: Description cannot be empty");
         }
         
         // Synchronize only when modifying the shared list
@@ -153,7 +160,7 @@ public class ClientHandler implements Runnable {
                 if (existingEvent.getDate().trim().equals(s_event.getDate().trim()) &&
                     existingEvent.getTime().trim().equals(s_event.getTime().trim()) &&
                     existingEvent.getDesc().trim().equals(s_event.getDesc().trim())) {
-                    throw new ClientInconsistencyException(
+                    throw new InvalidCommandException(
                         "Duplicate event detected: An event with the same date, time, and description already exists");
                 }
             }
@@ -166,16 +173,23 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private String addNoList(Sch_Events s_event) throws ClientInconsistencyException {
+    //this is just a repeated method but with no list generation at the end!!
+    private Sch_Events addNoList(Sch_Events s_event) throws InvalidCommandException {
         // Validate event data before adding
         if (s_event.getDate() == null || s_event.getDate().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Date cannot be empty");
+            throw new InvalidCommandException("Invalid event: Date cannot be empty");
+        }
+        if (!isValidDateFormat(s_event.getDate().trim())) {
+            throw new InvalidCommandException("Invalid event: Date must be in format 'DD/MM/YYYY', 'DD-MM-YYYY', or 'DD month YYYY' (e.g., '25/10/2024', '26-10-2026', or '12 november 2025')");
         }
         if (s_event.getTime() == null || s_event.getTime().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Time cannot be empty");
+            throw new InvalidCommandException("Invalid event: Time cannot be empty");
+        }
+        if (!isValidTimeFormat(s_event.getTime().trim())) {
+            throw new InvalidCommandException("Invalid event: Time must be in format HH:MM or HH:MM AM/PM (e.g., '14:30' or '2:30 PM')");
         }
         if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
-            throw new ClientInconsistencyException("Invalid event: Description cannot be empty");
+            throw new InvalidCommandException("Invalid event: Description cannot be empty");
         }
         
         // Synchronize only when modifying the shared list
@@ -185,7 +199,7 @@ public class ClientHandler implements Runnable {
                 if (existingEvent.getDate().trim().equals(s_event.getDate().trim()) &&
                     existingEvent.getTime().trim().equals(s_event.getTime().trim()) &&
                     existingEvent.getDesc().trim().equals(s_event.getDesc().trim())) {
-                    throw new ClientInconsistencyException(
+                    throw new InvalidCommandException(
                         "Duplicate event detected: An event with the same date, time, and description already exists");
                 }
             }
@@ -258,5 +272,55 @@ public class ClientHandler implements Runnable {
             }
             
         }
+    }
+    
+    
+    //  Validates if the given time string is in a proper time format.
+    //  Accepts formats like: HH:MM (24-hour) or H:MM AM/PM (12-hour)
+    //  Examples: "14:30", "2:30 PM", "02:30", "12:00 AM"
+     
+    private boolean isValidTimeFormat(String time) {
+        if (time == null || time.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Pattern for 24-hour format: HH:MM or H:MM (00:00 to 23:59)
+        Pattern pattern24Hour = Pattern.compile("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$");
+        
+        // Pattern for 12-hour format: H:MM AM/PM or HH:MM AM/PM (1:00 AM to 12:59 PM) - case insensitive
+        Pattern pattern12Hour = Pattern.compile("^(1[0-2]|0?[1-9]):[0-5][0-9]\\s?(AM|PM)$", Pattern.CASE_INSENSITIVE);
+        
+        return pattern24Hour.matcher(time).matches() || pattern12Hour.matcher(time).matches();
+    }
+    
+    
+    // Validates if the given date string is in a proper date format.
+    // Accepts formats like: DD/MM/YYYY, DD-MM-YYYY, or DD month YYYY
+    // Examples: "25/10/2024", "26-10-2026", "12 november 2025", "5 jan 2024"
+   
+    private boolean isValidDateFormat(String date) {
+        if (date == null || date.trim().isEmpty()) {
+            return false;
+        }
+        
+        String dateStr = date.trim();
+        
+        //Pattern for DD/MM/YYYY format (e.g., 25/10/2024, 5/1/2024)
+        Pattern patternSlash = Pattern.compile("^(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[0-2])/([12][0-9]{3})$");
+        
+        //Pattern for DD-MM-YYYY format (e.g., 26-10-2026, 5-1-2024)
+        Pattern patternDash = Pattern.compile("^(0?[1-9]|[12][0-9]|3[01])-(0?[1-9]|1[0-2])-([12][0-9]{3})$");
+        
+        //Pattern for DD month YYYY format (e.g., 12 november 2025, 5 jan 2024)
+        //Supports full month names and common abbreviations
+        Pattern patternMonth = Pattern.compile(
+            "^(0?[1-9]|[12][0-9]|3[01])\\s+(january|february|march|april|may|june|july|august|september|october|november|december|" +
+            "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\\s+([12][0-9]{3})$", 
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        return patternSlash.matcher(dateStr).matches() || 
+               patternDash.matcher(dateStr).matches() || 
+               patternMonth.matcher(dateStr).matches();
     }
 }

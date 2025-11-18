@@ -48,7 +48,8 @@ public class Client {
             System.out.println("Connected to server! Type 'quit' or 'exit' to disconnect.");
             System.out.println("Message format: command;date;time;place");
             System.out.println("Example: add;2025-10-28;14:30;Conference Room A");
-            System.out.println("Or type 'import' to transfer data from \nandrepont.dev/events.txt to the server\n");
+            System.out.println("Or type 'import' to transfer data from the default URL");
+            System.out.println("Or type 'import;custom_url' to import from a custom URL\n");
 
             // Keep connection alive - loop until user types "quit" or "exit"
             boolean keepRunning = true;
@@ -82,32 +83,107 @@ public class Client {
                         }
 
                         break;
-                    } else if (message.trim().equalsIgnoreCase("import")) {
-                        //Stream results from custom file inPostman my private server to send to local 
-                        //server memory storage
-                        URL url = new URL("http://apem.andrepont.dev/events.txt");
-                        URLConnection conn = url.openConnection();
-                        BufferedReader inImport = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-
-                        String line;
-                        // Read first line to start the loop
-                        line = inImport.readLine();
-                        while (line != null) {
-                            String next = inImport.readLine(); // peek next line
-                            if (next == null) {
-                                outPostman.println("add; " + line);
-                            } else {
-                                outPostman.println("addnolist; " + line);
-                            }
-                            System.out.println("Sent to server: " + line);
-                            response = inPostman.readLine();
-                            if (response != null) {
-                                System.out.println("SERVER> " + response);
-                            }
-                            line = next;
+                    } else if (message.trim().toLowerCase().startsWith("import")) {
+                        // Handle import command with optional custom URL using semicolon separation
+                        String[] importParts = message.trim().split(";", 2);
+                        String importUrl;
+                        
+                        if (importParts.length > 1 && !importParts[1].trim().isEmpty()) {
+                            // Custom URL provided
+                            importUrl = importParts[1].trim();
+                            System.out.println("Importing from custom URL: " + importUrl);
+                        } else {
+                            // Use default URL
+                            importUrl = "http://apem.andrepont.dev/events.txt";
+                            System.out.println("Importing from default URL: " + importUrl);
                         }
-                        inImport.close();
-                        System.out.println("Import finished\n");
+                        
+                        //Stream results from custom file to send to local 
+                        //server memory storage
+                        try {
+                            URL url = new URL(importUrl);
+                            URLConnection conn = url.openConnection();
+                            BufferedReader inImport = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+
+                            String line;
+                            int importedCount = 0;
+                            int skippedCount = 0;
+                            java.util.List<String> validLines = new java.util.ArrayList<>();
+                            
+                            // First pass: read and validate all lines
+                            while ((line = inImport.readLine()) != null) {
+                                line = line.trim();
+                                
+                                // Skip empty lines
+                                if (line.isEmpty()) {
+                                    skippedCount++;
+                                    System.out.println("Skipped empty line");
+                                    continue;
+                                }
+                                
+                                // Validate line format - expecting date;time;description
+                                String[] parts = line.split(";");
+                                if (parts.length != 3) {
+                                    skippedCount++;
+                                    System.out.println("Skipped malformed line (expected 3 parts separated by ';'): " + line);
+                                    continue;
+                                }
+                                
+                                String date = parts[0].trim();
+                                String time = parts[1].trim();
+                                String description = parts[2].trim();
+                                
+                                // Basic validation for empty parts
+                                if (date.isEmpty() || time.isEmpty() || description.isEmpty()) {
+                                    skippedCount++;
+                                    System.out.println("Skipped line with empty fields: " + line);
+                                    continue;
+                                }
+                                
+                                // Line is valid, add to list
+                                validLines.add(line);
+                            }
+                            inImport.close();
+                            
+                            // Second pass: send valid lines to server
+                            for (int i = 0; i < validLines.size(); i++) {
+                                String validLine = validLines.get(i);
+                                String command;
+                                
+                                // Use 'add' for the last line, 'addnolist' for all others
+                                if (i == validLines.size() - 1) {
+                                    command = "add;" + validLine;
+                                } else {
+                                    command = "addnolist;" + validLine;
+                                }
+                                
+                                outPostman.println(command);
+                                System.out.println("Sent to server: " + validLine);
+                                
+                                // Read server response
+                                response = inPostman.readLine();
+                                if (response != null) {
+                                    System.out.println("SERVER> " + response);
+                                    // Check if server accepted the event (not an error response)
+                                    if (!response.toLowerCase().startsWith("error")) {
+                                        importedCount++;
+                                    } else {
+                                        skippedCount++;
+                                        System.out.println("Server rejected line: " + validLine);
+                                    }
+                                } else {
+                                    skippedCount++;
+                                    System.out.println("No response from server for line: " + validLine);
+                                }
+                            }
+                            
+                            // Print final summary
+                            System.out.println("Imported: " + importedCount + "; Skipped: " + skippedCount + "\\n");
+                            
+                        } catch (Exception e) {
+                            System.out.println("Error during import: " + e.getMessage());
+                            System.out.println("Please check the URL and try again.\\n");
+                        }
 
                         // Continue to next iteration - don't read another response
                         continue;
