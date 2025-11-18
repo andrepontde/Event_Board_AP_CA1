@@ -278,6 +278,9 @@ public class ClientHandler implements Runnable {
     //  Validates if the given time string is in a proper time format.
     //  Accepts formats like: HH:MM (24-hour) or H:MM AM/PM (12-hour)
     //  Examples: "14:30", "2:30 PM", "02:30", "12:00 AM"
+    //  Reference: GeeksforGeeks (n.d.) Validate a time format (HHMMSS) using Regex in Java. 
+    //  Available at: https://www.geeksforgeeks.org/java/validate-a-time-format-hhmmss-using-regex-in-java/ 
+    //  (Accessed: 18 November 2025).
      
     private boolean isValidTimeFormat(String time) {
         if (time == null || time.trim().isEmpty()) {
@@ -297,6 +300,8 @@ public class ClientHandler implements Runnable {
     // Validates if the given date string is in a proper date format.
     // Accepts formats like: DD/MM/YYYY, DD-MM-YYYY, or DD month YYYY
     // Examples: "25/10/2024", "26-10-2026", "12 november 2025", "5 jan 2024"
+    // Reference: Baeldung (n.d.) Java Date Regular Expressions. Available at: 
+    // https://www.baeldung.com/java-date-regular-expressions (Accessed: 18 November 2025).
    
     private boolean isValidDateFormat(String date) {
         if (date == null || date.trim().isEmpty()) {
