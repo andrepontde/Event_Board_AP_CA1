@@ -69,7 +69,8 @@ public class ClientHandler implements Runnable {
                     // Process valid commands
                     if (command.equals("add") || command.equals("remove") || command.equals("list") || command.equals("import") || command.equals("addnolist")) {
                         if (eventDesc.length >= 4) {
-                            s_event = new Sch_Events(eventDesc[1], eventDesc[2], eventDesc[3]);
+                            // Trim spaces from date and time fields
+                            s_event = new Sch_Events(eventDesc[1].trim(), eventDesc[2].trim(), eventDesc[3]);
                             
                             // Call methods OUTSIDE synchronized block
                             switch (command) {
@@ -147,7 +148,7 @@ public class ClientHandler implements Runnable {
             throw new InvalidCommandException("Invalid event: Time cannot be empty");
         }
         if (!isValidTimeFormat(s_event.getTime().trim())) {
-            throw new InvalidCommandException("Invalid event: Time must be in format HH:MM or HH:MM AM/PM (e.g., '14:30' or '2:30 PM')");
+            throw new InvalidCommandException("Invalid event: Time must be in format H AM/PM or H:MM AM/PM (e.g., '6 pm', '7:30 am', '12 am')");
         }
         if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
             throw new InvalidCommandException("Invalid event: Description cannot be empty");
@@ -186,7 +187,7 @@ public class ClientHandler implements Runnable {
             throw new InvalidCommandException("Invalid event: Time cannot be empty");
         }
         if (!isValidTimeFormat(s_event.getTime().trim())) {
-            throw new InvalidCommandException("Invalid event: Time must be in format HH:MM or HH:MM AM/PM (e.g., '14:30' or '2:30 PM')");
+            throw new InvalidCommandException("Invalid event: Time must be in format H AM/PM or H:MM AM/PM (e.g., '6 pm', '7:30 am', '12 am')");
         }
         if (s_event.getDesc() == null || s_event.getDesc().trim().isEmpty()) {
             throw new InvalidCommandException("Invalid event: Description cannot be empty");
@@ -247,8 +248,9 @@ public class ClientHandler implements Runnable {
         }
 
         if (!e_matches.isEmpty()) {
-            //Stream new list to build new message
+            //Stream new list to build new message, sorted by time
             e_matches.stream()
+                .sorted((e1, e2) -> Integer.compare(timeToMinutes(e1.getTime()), timeToMinutes(e2.getTime())))
                 .forEach(event -> listMsg.append(event.getEvent()));    
             return listMsg.toString();
         }else{
@@ -264,6 +266,7 @@ public class ClientHandler implements Runnable {
             StringBuilder listMsg = new StringBuilder();
             if (!sharedEvents.isEmpty()) {
                 sharedEvents.stream()
+                    .sorted((e1, e2) -> Integer.compare(timeToMinutes(e1.getTime()), timeToMinutes(e2.getTime())))
                     .forEach(event -> listMsg.append(event.getEvent()));
                     
                 return listMsg.toString();    
@@ -274,10 +277,52 @@ public class ClientHandler implements Runnable {
         }
     }
     
+    /**
+     * Converts 12-hour time format to minutes since midnight for proper comparison
+     * Handles formats like "6 pm", "7:30 am", "12 am"
+     */
+    private int timeToMinutes(String timeStr) {
+        if (timeStr == null || timeStr.trim().isEmpty()) {
+            return 0;
+        }
+        
+        String time = timeStr.trim().toUpperCase();
+        int hours = 0;
+        int minutes = 0;
+        
+        try {
+            boolean isPM = time.contains("PM");
+            String timePart = time.replace("AM", "").replace("PM", "").trim();
+            
+            if (timePart.contains(":")) {
+                // Format: H:MM AM/PM
+                String[] parts = timePart.split(":");
+                hours = Integer.parseInt(parts[0]);
+                minutes = Integer.parseInt(parts[1]);
+            } else {
+                // Format: H AM/PM
+                hours = Integer.parseInt(timePart);
+                minutes = 0;
+            }
+            
+            // Convert to 24-hour format
+            if (isPM && hours != 12) {
+                hours += 12;
+            } else if (!isPM && hours == 12) {
+                hours = 0;
+            }
+            
+            return hours * 60 + minutes;
+        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+            // If parsing fails, return 0 (will sort to beginning)
+            return 0;
+        }
+    }
+    
     
     //  Validates if the given time string is in a proper time format.
-    //  Accepts formats like: HH:MM (24-hour) or H:MM AM/PM (12-hour)
-    //  Examples: "14:30", "2:30 PM", "02:30", "12:00 AM"
+    //  Accepts 12-hour format with AM/PM: H AM/PM, H:MM AM/PM
+    //  Examples: "6 pm", "7:30 am", "12 am", "11:45 PM"
     //  Reference: GeeksforGeeks (n.d.) Validate a time format (HHMMSS) using Regex in Java. 
     //  Available at: https://www.geeksforgeeks.org/java/validate-a-time-format-hhmmss-using-regex-in-java/ 
     //  (Accessed: 18 November 2025).
@@ -287,13 +332,11 @@ public class ClientHandler implements Runnable {
             return false;
         }
         
-        // Pattern for 24-hour format: HH:MM or H:MM (00:00 to 23:59)
-        Pattern pattern24Hour = Pattern.compile("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$");
+        // Pattern for 12-hour format: H AM/PM or H:MM AM/PM (1:00 AM to 12:59 PM) - case insensitive
+        // Allows optional space before AM/PM and supports both H and H:MM formats
+        Pattern pattern12Hour = Pattern.compile("^(1[0-2]|0?[1-9])(:[0-5][0-9])?\\s?(AM|PM)$", Pattern.CASE_INSENSITIVE);
         
-        // Pattern for 12-hour format: H:MM AM/PM or HH:MM AM/PM (1:00 AM to 12:59 PM) - case insensitive
-        Pattern pattern12Hour = Pattern.compile("^(1[0-2]|0?[1-9]):[0-5][0-9]\\s?(AM|PM)$", Pattern.CASE_INSENSITIVE);
-        
-        return pattern24Hour.matcher(time).matches() || pattern12Hour.matcher(time).matches();
+        return pattern12Hour.matcher(time).matches();
     }
     
     
